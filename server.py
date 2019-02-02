@@ -5,7 +5,7 @@ import numpy as np
 import pickle as pkl
 from rtmidi import RtMidiIn, RtMidiOut
 from threading import Thread, Timer
-from gesture import Gesture, Collecture
+from gesture import Gesture, Collecture, randomize
 from representations import data_matrix
 
 class Server(Thread):
@@ -48,6 +48,7 @@ class Server(Thread):
             if self.g_ongoing and not any(self.sustained) and not self.pedal and time.time()-self.g_last > self.g_break:
                 self.g_ongoing = False
                 c = Collecture(self.gesture)
+                c = randomize(c)
                 c.play(self.out_device)
                 # compress and decompress gesture
                 # g = Gesture(self.gesture.dist_vector(), "dist")

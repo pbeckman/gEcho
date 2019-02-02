@@ -29,9 +29,9 @@ class Gesture():
         """Collect and convert midi messages into interperable note data"""
         prev_nn = 0 # midi note number for previous note on
         prev_time = 0 # start time for previous note on
-        attrs = [(0,0)] * 120 # keep track of note start times and velocities
+        attrs = [(0,0)] * 109 # keep track of note start times and velocities
         pedal = False # whether the sustain pedal is down
-        sustained = [False] * 120 # keep track of notes held only by sustain pedal
+        sustained = [False] * 109 # keep track of notes held only by sustain pedal
 
         for (msg, time) in zip(self.messages, self.msg_times):
             if msg.isController() and msg.getControllerNumber() == 64:
@@ -52,6 +52,7 @@ class Gesture():
                 nn = msg.getNoteNumber()
                 # save note start time and velocity
                 # wait until note end to record in class attributes to keep everything aligned
+                print nn
                 attrs[nn] = (time, msg.getVelocity())
             if msg.isNoteOff():
                 nn = msg.getNoteNumber()
@@ -86,18 +87,21 @@ class Collecture():
 
         # use clustering to subdivide gesture and compute distributions separately
         X = data_matrix(gesture)
-        labels = DBSCAN(eps=0.3, min_samples=3).fit_predict(X)
+        labels = DBSCAN(eps=0.1, min_samples=3).fit_predict(X)
         # labels = [0 if l==-1 else l for l in labels]
         print labels
 
         l_set = set(labels)
         for l in l_set:
+            # row indices having the given label
             l_inds = [i for i in range(len(labels)) if labels[i] == l]
+            # data matrix corresponding to notes in cluster
             subgesture_X = X.take(l_inds, axis=0)
+            # generate a subgesture from cluster
             g = from_data_matrix(subgesture_X)
-            # print g.note_times
+            # add subgesture and start time of first note to collecture
             self.subgestures.append(g)
-            self.times.append(min(subgesture_X[:, 2]))
+            self.times.append(20 * min(subgesture_X[:, 2])) # rescale time
 
     def play(self, device):
         """Spawn a series of timer threads to play back subgestures on the given device"""
@@ -105,6 +109,14 @@ class Collecture():
             # print subgesture.notes, subgesture.note_times
             t = Timer(time, subgesture.play, (device,))
             t.start()
+
+def randomize(collecture):
+    for i in range(len(collecture.subgestures)):
+        collecture.subgestures[i] = from_dist_vec(
+            dist_vector(collecture.subgestures[i])
+        )
+    return collecture
+
 
 def data_matrix(gesture, scaled=True):
     """Representation of gesture as a real-valued matrix
@@ -225,6 +237,11 @@ def from_dist_vec(vector):
           prev_time = 0.0
       else:
           nn = prev_nn + int(round(normal(int_mean, int_std)))
+          # if note is out of the keyboard's range, wrap it by octave into range
+          if nn > 108:
+              nn -= -((108-nn) // 12) * 12
+          if nn < 21:
+              nn += -((nn-21) // 12) * 12
           time = prev_time + normal(diff_mean, diff_std)
           g.messages.append(
               MidiMessage.noteOn(1, nn, int(round(normal(vel_mean, vel_std))))
