@@ -3,10 +3,9 @@ import time
 import resource
 import numpy as np
 import pickle as pkl
-from rtmidi import RtMidiIn, RtMidiOut, MidiMessage
+from rtmidi import RtMidiIn, RtMidiOut
 from threading import Thread, Timer
-from sklearn.cluster import DBSCAN
-from gesture import Gesture
+from gesture import Gesture, Collecture
 from representations import data_matrix
 
 class Server(Thread):
@@ -48,11 +47,8 @@ class Server(Thread):
 
             if self.g_ongoing and not any(self.sustained) and not self.pedal and time.time()-self.g_last > self.g_break:
                 self.g_ongoing = False
-                X = data_matrix(self.gesture)
-                # Xs.append(X)
-                # print Xs
-                labels = DBSCAN(eps=0.3, min_samples=3).fit_predict(X)
-                print labels
+                c = Collecture(self.gesture)
+                c.play(self.out_device)
                 # compress and decompress gesture
                 # g = Gesture(self.gesture.dist_vector(), "dist")
                 # play decompressed vector
